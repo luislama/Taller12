@@ -15,16 +15,17 @@ void * contarPalabras(void * datosStruct);
 struct estructura{
   char* palabras;//palabras a buscar
   int* num_palabras;//para actualizar el conteo de las palabras
-  int fd;//descriptor del archivo que debe de leer
+  FILE* fd;//descriptor del archivo que debe de leer
   int startRead;
   int caracteres;
 } datosStruct;
 
 #define MAX 1000000
+pthread_mutex_t lock;
 
 int main(int argc, char** argv)
 {
-  if( argc<4 )
+  if(argc < 4)
   {
     printMensajeError(1,0,0);
     return -1;
@@ -33,15 +34,15 @@ int main(int argc, char** argv)
   {
   //COMIENZA A VALIDAR LOS PARAMETROS
     int nHilos = atoi(argv[2]);//numero de hilos
-    if(nHilos<=0)
+    if(nHilos <= 0)
     {
       printMensajeError(1,1,0);
       return -1;
     }
     char *ruta = argv[1];//ruta del archivo
 //-->DESCRIPTOR DE ARCHIVO
-    int fd = open(ruta,O_RDONLY);
-    if(fd<0)
+    FILE* fd = fopen(ruta,O_RDONLY);
+    if(fd < 0)
     {
       printMensajeError(1,0,1);
       return -1;
@@ -73,10 +74,18 @@ int main(int argc, char** argv)
 
     pthread_t * idHilos = (pthread_t *)malloc(sizeof(pthread_t) * nHilos);
 
-    int num=0;//Para moverme por los numeros de lineas
-    int iniRead=0;
+    int num = 0;//Para moverme por los numeros de lineas
+    int iniRead = 0;
+  
+  //INICIALIZAMOS EL MUTEX
+    if (pthread_mutex_init(&lock, NULL) != 0)
+    {
+        printf("\nInicializacion de mutex fallida\n");
+        return -1;
+    }
+  
   //GENERAMOS EL NUMERO DE HILOS
-    for (int x=0; x<nHilos; x++)
+    for (int x = 0; x < nHilos; x++)
     {
       pthread_t h=0;
       struct estructura *r = (struct estructura *)malloc(sizeof(struct estructura));
@@ -120,12 +129,19 @@ int main(int argc, char** argv)
     printf("ruta: %s\n",ruta);
     printf("hilos: %i\n",nHilos);
     printf("lineas por hilo: %i\n",lnsxHilo);
-    if(numeroDeLineas%nHilos != 0)
+    if(numeroDeLineas % nHilos != 0)
       printf("  excepto el ultimo hilo que tiene %i lineas\n", lnsxHilo + (numeroDeLineas - numDivisible) );
-    for(int i = 0; i<numeroPalabras; i++)
+    for(int i = 0; i < numeroPalabras; i++)
     {
       printf("palabra%i: %s\n",i+1,palabras[i]);
     }
+
+  //ESPERAMOS QUE TERMINEN TODOS LOS HILOS
+    for (int x = 0; x < nHilos; x++)
+      pthread_join(idHilos[x], NULL);
+
+  //TERMINAMOS EL MUTEX
+    pthread_mutex_destroy(&lock);
     
     return 0;
   }
@@ -166,7 +182,26 @@ int numero_lineas(char *ruta, int *tam_lineas)
     }
     return -1;
 }
-void * contarPalabras(void * datosStruct)
+void * contarPalabras(void * arg)
 {
+  struct estructura *param = (struct estructura *)arg;
+  pthread_mutex_lock(&lock);
+  //REGION CRITICA
+  if (fseek(param->fd, param->startRead, SEEK_SET)!=0){
+    printf("Algo salio mal moviendo el cursos en el archivo");
+    return (void *)-1;
+  }
+  for (int i = 1; i< param->lineas; i++){
+    char *linea;
+    fgets(linea, MAX, param->fd);
+    char *palabra;
+    palabra = strtok(linea," ,.-");
+    while (palabra != NULL)
+    {
+      printf ("%s\n",palabra);
+      palabra = strtok(NULL, " ,.-");
+    }
+  }
+  pthread_mutex_unlock(&lock);
   return (void *)0;
 }
