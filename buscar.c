@@ -12,6 +12,7 @@
 void printMensajeError(int nHilos, FILE *fp);
 int numero_lineas(int *tam_lineas);
 void * contarPalabras(void * datosStruct);
+void * printEstado(void * arg);
 
 struct estructura{
   int startRead;//el caracter desde donde debe empezar a leer
@@ -21,7 +22,6 @@ struct estructura{
 
 #define MAX 1000000
 int numeroPalabras = 0;
-int numCoincidencias = 0;
 pthread_mutex_t mutex;    //inicializamos el mutex estaticamente
 char** palabras;
 char* ruta;
@@ -125,6 +125,13 @@ int main(int argc, char** argv)
       iniRead+=caracteres;
     }
 
+    pthread_t idHiloImpresion;
+    if (pthread_create(&idHiloImpresion, NULL, printEstado, NULL)<0)
+    {
+      printf("Algo salio mal con la creacion del hilo de impresion\n");
+      return -1;
+    }
+
     for (int x=0; x<nHilos; x++)
     {
       void* status=0;
@@ -134,24 +141,40 @@ int main(int argc, char** argv)
     //IMPRESION para verifica que:
     //  -Obtenga bien los parámetros
     //  -El calculo de lineas por hilo sea el correcto
-//    
+/*    
     printf("ruta: %s\n",ruta);
     printf("hilos: %i\n",nHilos);
     printf("lineas por hilo: %i\n",lnsxHilo);
     if(numeroDeLineas%nHilos != 0)
       printf("  excepto el ultimo hilo que tiene %i lineas\n", lnsxHilo + (numeroDeLineas - numDivisible) );
+*/
     for(int i = 0; i<numeroPalabras; i++)
     {
       printf("palabra%i: %s  aparece %i veces\n",i+1,palabras[i],num_palabras[i]);
     }
-    printf("numero de coincidencias: %i\n",numCoincidencias );
-//    
+
+   
     //TERMINAMOS EL MUTEX
     pthread_mutex_destroy(&mutex);
     return 0;
   }
 
 }
+
+void * printEstado(void * arg)
+{
+  while(1)
+  {
+    pthread_mutex_lock(&mutex);
+    for(int i = 0; i<numeroPalabras; i++)
+    {
+        printf("palabra%i: %s  aparece %i veces\n",i+1,palabras[i],num_palabras[i]);
+    }
+    pthread_mutex_unlock(&mutex);
+    sleep(1);
+  }
+}
+
 void printMensajeError(int nHilos, FILE *fp)
 {
   
