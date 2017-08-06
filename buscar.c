@@ -10,22 +10,21 @@
 
 
 void printMensajeError(int nHilos, FILE *fp);
-int numero_lineas(char *ruta, int *tam_lineas);
+int numero_lineas(int *tam_lineas);
 void * contarPalabras(void * datosStruct);
 
 struct estructura{
-  FILE *fp;//descriptor del archivo que debe de leer
   int startRead;//el caracter desde donde debe empezar a leer
   int lnIni;//la linea inicial, para a partir de aqui obtener los tamaños
-  int *tam_lineas;//el arreglo con los tamaños de linea
   int lnFin;//La ultima linea que debe de leer
 } datosStruct;
 
 #define MAX 1000000
-int numeroPalabras=0;
-int numCoincidencias=0;
+int numeroPalabras = 0;
+int numCoincidencias = 0;
 pthread_mutex_t mutex;    //inicializamos el mutex estaticamente
 char** palabras;
+char* ruta;
 int num_palabras[100];
 
 int main(int argc, char** argv)
@@ -40,7 +39,7 @@ int main(int argc, char** argv)
   {
   //COMIENZA A VALIDAR LOS PARAMETROS
     int nHilos = atoi(argv[2]);//numero de hilos
-    char *ruta = argv[1];//ruta del archivo
+    ruta = argv[1];//ruta del archivo
   //-->DESCRIPTOR DE ARCHIVO
     FILE *fp = fopen(ruta,"r");
     if(fp==NULL || nHilos<=0)
@@ -62,15 +61,14 @@ int main(int argc, char** argv)
     for(int i = 0; i<numeroPalabras; i++)
     { 
       palabras[i]=argv[i+3];
-      //*(palabras+i)=argv[i+3];
     }
     int *tam_lineas = (int*)malloc(sizeof(int)*MAX);
-    int numeroDeLineas = numero_lineas(ruta,tam_lineas);//incluye la ultima que no tiene nada
-//    
+    int numeroDeLineas = numero_lineas(tam_lineas);//incluye la ultima que no tiene nada
+/*    
     for(int i=0;i<numeroDeLineas;i++)
       printf("linea %i, tamaño %i\n",i+1, tam_lineas[i]);
     printf("numero de lineas: %i\n",numeroDeLineas);
-//
+*/
   //DETERMINA NUMERO DE LINEAS POR HILO
     int numDivisible=numeroDeLineas;
     while((numDivisible % nHilos)!=0)
@@ -101,18 +99,16 @@ int main(int argc, char** argv)
         lnFin = numeroDeLineas-1;
       else
         lnFin = num + lnsxHilo - 1;
-//
+/*
       printf("\ni: %d --- f: %d\n",lnIni,lnFin);
-//      
+*/      
     //OBTIENE el total de caracteres que debe de leer el hilo actual
       int caracteres = 0;
       for(int i = lnIni; i<=lnFin; i++)
         caracteres += tam_lineas[i];
     //ASIGNA los valores a la estructura
-      r->fp = fp;
       r->startRead = iniRead;
       r->lnIni = lnIni;
-      r->tam_lineas = tam_lineas;
       r->lnFin = lnFin;
     //CREA el hilo
       if ((pthread_create(&h, NULL, contarPalabras, (void *)r)<0))
@@ -122,10 +118,10 @@ int main(int argc, char** argv)
       }
       idHilos[x] = h;
       num += lnsxHilo;
-//      
+/*      
       printf("hilo %i debe procesar %i caracteres",x,caracteres);
       printf(" y debe de comenzar a leer desde el caracter %i\n",iniRead);
-//      
+*/      
       iniRead+=caracteres;
     }
 
@@ -166,7 +162,7 @@ void printMensajeError(int nHilos, FILE *fp)
   printf("\nModo de Uso: ./buscar <ruta> <hilos> <palabra1> <palabra2> ... <palabraN>\n");
   printf("Puede ingresar hasta 100 palabras, pero el minimo es una palabra.\n\n");
 }
-int numero_lineas(char *ruta, int *tam_lineas)
+int numero_lineas(int *tam_lineas)
 {
   if(ruta != NULL)
     {
@@ -194,56 +190,50 @@ int numero_lineas(char *ruta, int *tam_lineas)
 }
 void * contarPalabras(void * datosStruct)
 {
-  char *buff;
-  char *token;
+
   pthread_mutex_lock(&mutex);
   struct estructura *r = (struct estructura*)datosStruct;
+  
+  FILE* fd = fopen(ruta, "r");
+  int lnIni = r->lnIni;
+  int lnFin = r->lnFin;
+  int startRead = r->startRead;
 
-  int s = fseek(r->fp,r->startRead,SEEK_SET);
   pthread_mutex_unlock(&mutex);
+
+  int s = fseek(fd, startRead, SEEK_SET);
 
   if( s==0 )
   {
-    pthread_mutex_lock(&mutex);
-    for(int i = r->lnIni; i <= r->lnFin; i++)
+    for(int i = lnIni; i <= lnFin; i++)
     { 
-      
-      int tam = (r->tam_lineas[i])+1;
-      
-      buff = (char *)malloc(sizeof(char)*tam);
-      
-      fgets(buff, tam,r->fp);
+      pthread_mutex_lock(&mutex);
+
+      char *buff = (char *)malloc(sizeof(char)*MAX);
+      char *token;
+
+      fgets(buff, MAX, fd);
 
       token = strtok(buff," ,.!?;:\n");
-      
-      
+         
       while( token != NULL )
       {
         
         for(int j=0; j<numeroPalabras;j++)
         {  
-          
           int comp = strcmp(token,palabras[j]);
-          //printf("%s y %s comp: %i\n",token,palabras[j],comp );
           if(  comp == 0 )
-          {
-            //printf("%s\n",token); 
-            
             (num_palabras[j])++;
-            
-          }
-          
         }
         
         token = strtok(NULL," ,.!?;:\n"); 
-        
 
       }
       
-      free(buff);    
-      
-    }
-    pthread_mutex_unlock(&mutex);
+      free(buff);
+
+      pthread_mutex_unlock(&mutex);
+    }    
     
   }
 
