@@ -8,7 +8,6 @@
 #include <sys/time.h>
 #include <unistd.h>
 
-
 void printMensajeError(int nHilos, FILE *fp);
 int numero_lineas(int *tam_lineas);
 void * contarPalabras(void * datosStruct);
@@ -20,7 +19,7 @@ struct estructura{
   int lnFin;//La ultima linea que debe de leer
 } datosStruct;
 
-#define MAX 1000000
+#define MAX 10000000
 int numeroPalabras = 0;
 pthread_mutex_t mutex;    //inicializamos el mutex estaticamente
 char** palabras;
@@ -170,6 +169,7 @@ void * printEstado(void * arg)
     {
         printf("palabra%i: %s  aparece %i veces\n",i+1,palabras[i],num_palabras[i]);
     }
+    printf("\n");
     pthread_mutex_unlock(&mutex);
     sleep(1);
   }
@@ -185,6 +185,7 @@ void printMensajeError(int nHilos, FILE *fp)
   printf("\nModo de Uso: ./buscar <ruta> <hilos> <palabra1> <palabra2> ... <palabraN>\n");
   printf("Puede ingresar hasta 100 palabras, pero el minimo es una palabra.\n\n");
 }
+
 int numero_lineas(int *tam_lineas)
 {
   if(ruta != NULL)
@@ -211,6 +212,7 @@ int numero_lineas(int *tam_lineas)
     }
     return -1;
 }
+
 void * contarPalabras(void * datosStruct)
 {
 
@@ -237,7 +239,7 @@ void * contarPalabras(void * datosStruct)
 
       fgets(buff, MAX, fd);
 
-      token = strtok(buff," ,.!?;:\n");
+      token = strtok(buff," ,.!?;:\e\\\?\f\n\t-_");
          
       while( token != NULL )
       {
@@ -249,7 +251,7 @@ void * contarPalabras(void * datosStruct)
             (num_palabras[j])++;
         }
         
-        token = strtok(NULL," ,.!?;:\n"); 
+        token = strtok(NULL," ,.!?;:\e\\\?\f\n\t-_"); 
 
       }
       
