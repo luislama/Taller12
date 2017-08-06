@@ -199,6 +199,10 @@ void * contarPalabras(void * arg)
     while (palabra != NULL)
     {
       printf ("%s\n",palabra);
+      for(int i = 0; i < (sizeof(param->palabras)/sizeof(char *)), i++){
+        if (strcmp(palabra,param->palabras[i])==0)
+          param->num_palabras[i] += 1;
+      }
       palabra = strtok(NULL, " ,.-");
     }
   }
