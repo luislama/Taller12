@@ -24,7 +24,7 @@ struct estructura{
 #define MAX 1000000
 int numeroPalabras=0;
 int numCoincidencias=0;
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;    //inicializamos el mutex estaticamente
+pthread_mutex_t mutex;    //inicializamos el mutex estaticamente
 char** palabras;
 int num_palabras[100];
 
@@ -78,6 +78,14 @@ int main(int argc, char** argv)
     int lnsxHilo = numDivisible/nHilos;
 
     pthread_t * idHilos = (pthread_t *)malloc(sizeof(pthread_t) * nHilos);
+
+    //INICIALIZAMOS EL MUTEX
+    if (pthread_mutex_init(&mutex, NULL) != 0)
+    {
+        printf("\nInicializacion de mutex fallida\n");
+        return -1;
+    }
+
 
     int num=0;//Para moverme por los numeros de lineas
     int iniRead=0;
@@ -142,6 +150,8 @@ int main(int argc, char** argv)
     }
     printf("numero de coincidencias: %i\n",numCoincidencias );
 //    
+    //TERMINAMOS EL MUTEX
+    pthread_mutex_destroy(&mutex);
     return 0;
   }
 
@@ -184,52 +194,58 @@ int numero_lineas(char *ruta, int *tam_lineas)
 }
 void * contarPalabras(void * datosStruct)
 {
-  struct estructura *r = (struct estructura*)datosStruct;
   char *buff;
   char *token;
-  
-//  pthread_mutex_lock(&mutex);
-//  pthread_mutex_unlock(&mutex);
-  
+  pthread_mutex_lock(&mutex);
+  struct estructura *r = (struct estructura*)datosStruct;
+
   int s = fseek(r->fp,r->startRead,SEEK_SET);
-   
+  pthread_mutex_unlock(&mutex);
 
   if( s==0 )
   {
+    pthread_mutex_lock(&mutex);
     for(int i = r->lnIni; i <= r->lnFin; i++)
     { 
-      int tam = r->tam_lineas[i];
-    //  pthread_mutex_lock(&mutex);
+      
+      int tam = (r->tam_lineas[i])+1;
+      
       buff = (char *)malloc(sizeof(char)*tam);
       
-      pthread_mutex_lock(&mutex);
+      fgets(buff, tam,r->fp);
+
+      token = strtok(buff," ,.!?;:\n");
       
-      fgets(buff, r->tam_lineas[i],r->fp);
-      token = strtok(buff," ,.!?;:");
+      
       while( token != NULL )
       {
         
         for(int j=0; j<numeroPalabras;j++)
-        {       
+        {  
+          
           int comp = strcmp(token,palabras[j]);
-
+          //printf("%s y %s comp: %i\n",token,palabras[j],comp );
           if(  comp == 0 )
           {
-            printf("%s\n",token); 
+            //printf("%s\n",token); 
+            
             (num_palabras[j])++;
             
-          } 
+          }
+          
         }
-        token = strtok(NULL," ,.!?;:");
-      }
-      free(buff);
+        
+        token = strtok(NULL," ,.!?;:\n"); 
+        
 
-      pthread_mutex_unlock(&mutex);
+      }
+      
+      free(buff);    
       
     }
+    pthread_mutex_unlock(&mutex);
     
   }
-  
 
   return (void *)0;
 }
